@@ -1,12 +1,10 @@
 ﻿#Requires AutoHotkey v2.0-a
 CoordMode "Caret"
 
-
-Hotkey "~F4 & r", Reload2
-
 If (A_ScriptFullPath = A_LineFile) {
     ; Objects
     completion_menu := SuggestionsGui()
+    add_word_menu := AddWordGui()
     Global gathered_input := InputHook("C V", "")
 
     ; Bound actions
@@ -21,13 +19,15 @@ If (A_ScriptFullPath = A_LineFile) {
     Hotkey "~LButton", key => completion_menu.ResetWord("Mouse")
     Hotkey "~MButton", key => completion_menu.ResetWord("Mouse")
     Hotkey "~RButton", key => completion_menu.ResetWord("Mouse")
+    Hotkey completion_menu.settings["add_word"], key => add_word_menu.ShowGui()
+    Hotkey "#F", key => completion_menu.diagnose()
 
     HotIfWinExist "Completion Menu"
     Hotkey "~LButton", key => completion_menu.CheckClickLocation()
     Hotkey completion_menu.settings["insert_hotkey"], key => completion_menu.KeyboardInsertMatch()
     Hotkey completion_menu.settings["next_item"], key => completion_menu.ChangeFocus("Down")
     Hotkey completion_menu.settings["previous_item"], key => completion_menu.ChangeFocus("Up")
-    Hotkey completion_menu.settings["hide_menu"], key => completion_menu.ResetWord("End Key")
+    Hotkey completion_menu.settings["hide_menu"], key => completion_menu.ResetGui()
 
     HotIf
 
@@ -63,6 +63,35 @@ ReadSettings(settings_category) {
         settings[Array[1]] := Trim(Array[2])
     }
     return settings 
+}
+
+; Escapes special character from raw string
+AddEscapeSequences(string) {
+    string := StrReplace(string, "``", "````")
+    string := StrReplace(string, "`r`n", "``n")
+    string := StrReplace(string, "`n", "``n")
+    string := StrReplace(string, "`t", "``t")
+    string := StrReplace(string, "`;", "```;")
+    return string
+}
+
+; Changes escape sequences in the string to the special character itself for sending
+; Thanks to Kisang Kim
+InvertEscapeSequences(string) {
+    string := StrReplace(string, "````", "``")
+    string := StrReplace(string, "```;", "`;")
+    string := StrReplace(string, "```:", "`:")
+    string := StrReplace(string, "``n", "`n")
+    string := StrReplace(string, "``r", "`n")
+    string := StrReplace(string, "``t", "`t")
+    string := StrReplace(string, "``b", "`b")
+    string := StrReplace(string, "``s", "`s")
+    string := StrReplace(string, "``v", "`v")
+    string := StrReplace(string, "``a", "`a")
+    string := StrReplace(string, "``f", "`f")
+    string := StrReplace(string, "```"", "`"")
+    string := StrReplace(string, "```'", "`'")
+    Return string
 }
 
 CustomizeTrayMenu() {
@@ -114,7 +143,13 @@ Class SuggestionsGui
     __New() {
         ; settings
         this.settings := ReadSettings("Settings")
-        this.settings["ignored_applications"] := StrSplit(this.settings["ignored_applications"], ",")
+        this.settings["filtered_applications"] := StrSplit(this.settings["filtered_applications"], ",")
+        if this.settings["filter_type"] == "whitelist" {
+          this.ShouldShowMenu := this.IsFilteredApp
+        }
+        else {
+          this.ShouldShowMenu := this.IsntFilteredApp
+        }
 
         this.window := this.MakeGui()
         this.matches := this.MakeLV(this.settings["bg_colour"], this.settings["text_colour"])
@@ -144,6 +179,12 @@ Class SuggestionsGui
         this.search_stack := Array("", this.word_list.root) ; array isn't as nice as map but keeps oldest strings at the front
     }
 
+    ResetGui() {
+        this.window.Destroy()
+        this.window := this.MakeGui()
+        this.matches := this.MakeLV(this.settings["bg_colour"], this.settings["text_colour"])
+    }
+
     MakeGui() {
         window := Gui("+AlwaysOnTop +ToolWindow -Caption", "Completion Menu", this)
         window.MarginX := 0
@@ -160,6 +201,19 @@ Class SuggestionsGui
         return matches
     }
 
+    IsFilteredApp() {
+        for app in this.settings["filtered_applications"] {
+            if WinActive(app) {
+                return True
+            }
+        }
+        return False
+    }
+
+    IsntFilteredApp() {
+        return not this.IsFilteredApp()
+    }
+
     LoadWordFile(word_file) {
         Loop read, word_file {
             this.LoadWord(A_LoopReadLine)
@@ -167,61 +221,70 @@ Class SuggestionsGui
     }
 
     LoadHotstringFile(hotstring_file, load_word, load_trigger) {
-        ; complexity is for handling continuation sections
+        ; complexity is for handling continuation sections and hotstring options
         continuation := Map("is_active", False
-                        ,"is_possible", False
                         ,"word", ""
-                        ,"trigger", "")
+                        ,"trigger", ""
+                        ,"options", "")
 
         Loop read, hotstring_file {
             if continuation["is_active"] {
-                if Trim(A_LoopReadLine) = ")" {
-                    this.LoadHotstring(continuation["word"], continuation["trigger"], load_word, load_trigger)
+                trimmed_line := StrLower(Trim(A_LoopReadLine))
+                if not continuation["word"] and trimmed_line != "(" {
                     continuation["is_active"] := False
-                    continuation["is_possible"] := False
+                    continue
+                }
+                else if trimmed_line = ")" {
+                    this.LoadHotstring(continuation["options"], continuation["word"], continuation["trigger"], load_word, load_trigger)
+                    continuation["is_active"] := False
                 }
                 else {
-                    continuation["word"] := continuation["word"] = "" ? A_LoopReadLine : continuation["word"] . "`n" . A_LoopReadLine
+                    continuation["word"] := continuation["word"] = "`n(" ? A_LoopReadLine : continuation["word"] . "`n" . A_LoopReadLine
                 }
+                continue
+            }
 
+            is_hotstring := RegExMatch(A_LoopReadLine, ":(?P<Options>.*?):(?P<Abbreviation>.*?)::(?P<Replacement>.*)", &hotstring_part)
+            if not is_hotstring or not hotstring_part.Abbreviation {
+                continue
             }
-            else if SubStr(A_LoopReadLine, 1, 2) = "::" { ; could expand to include other hotstring styles with minor adjustments but matching would be less accurate
-                split := StrSplit(A_LoopReadLine, "::")
-                trigger := split[2]
-                word := split[3]
-                this.LoadHotstring(word, trigger, load_word, load_trigger)
-                continuation["is_possible"] := True
-                continuation["word"] := word
-                continuation["trigger"] := trigger
-            }
-            else if continuation["is_possible"] and Trim(A_LoopReadLine) = "(" {
-                if load_word {
-                    this.word_list.Delete(continuation["word"], "is_word")
-                }
-                if load_trigger {
-                    this.word_list.Delete(continuation["trigger"], "is_hotstring")
-                }
+            if not hotstring_part.Replacement {
                 continuation["is_active"] := True
+                continuation["word"] := ""
+                continuation["trigger"] := hotstring_part.Abbreviation
+                continuation["options"] := hotstring_part.Options
+                continue
             }
-            else {
-                continuation["is_possible"] := False
-            }
+            this.LoadHotstring(hotstring_part.Options, hotstring_part.Replacement, hotstring_part.Abbreviation, load_word, load_trigger)
         }
     }
 
     LoadWord(word) {
         if StrLen(word) >= this.settings["min_suggestion_length"] {
-            this.word_list.Insert(A_LoopReadLine)
+            this.word_list.Insert(word)
+            this.word_list.Insert(StrUpper(SubStr(word, 1, 1)) . SubStr(word, 2))
         }
     }
 
-    LoadHotstring(word, trigger, load_word, load_trigger) {
-        if StrLen(word) >= this.settings["min_suggestion_length"] {
-            if load_word {
-                this.word_list.Insert(word, trigger, "is_word")
+    LoadHotstring(options, word, trigger, load_word, load_trigger) {
+        if StrLen(word) < this.settings["min_suggestion_length"] or options ~= "i)\A(\?|X)\z" {
+            return
+        }
+        case_sensitive := InStr(options, "C") ? True : False
+        if not case_sensitive {
+            upper_word := StrUpper(SubStr(word, 1, 1)) . SubStr(word, 2)
+            upper_trigger := StrUpper(SubStr(trigger, 1, 1)) . SubStr(trigger, 2)
+        }
+        if load_word {
+            this.word_list.Insert(word, trigger, "is_word")
+            if not case_sensitive {
+                this.word_list.Insert(upper_word, upper_trigger, "is_word")
             }
-            if load_trigger {
-                this.word_list.Insert(trigger, word, "is_hotstring")
+        }
+        if load_trigger {
+            this.word_list.Insert(trigger, word, "is_hotstring")
+            if not case_sensitive {
+                this.word_list.Insert(upper_trigger, upper_word, "is_hotstring")
             }
         }
     }
@@ -235,28 +298,15 @@ Class SuggestionsGui
         while index <= this.search_stack.Length {
             prefix := this.search_stack[index]
             prefix_length := StrLen(prefix)
-            ;-*-*-*-*-*-*-*-*-*-*-*-*-*-*我增加的代码*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-            ; MsgBox word
-            If InStr(word, "➽")
-                word2 := RegExReplace(word, "^.+?➽(.+?)$","$1")
-            ; MsgBox word2
-            ;-*-*-*-*-*-*-*-*-*-*-*-*-*-*我增加的代码*-*-*-*-*-*-*-*-*-*-*-*-*-*-
             if not prefix {
                 continue
             }
             else if SubStr(hotstring, 1, prefix_length) = prefix {
-                ; send_str := "{Backspace " prefix_length "}" word
-            ;-*-*-*-*-*-*-*-*-*-*-*-*-*-*我增加的代码*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-                send_str := "{Backspace " prefix_length "}" word2
-            ;-*-*-*-*-*-*-*-*-*-*-*-*-*-*我增加的代码*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+                send_str := "{Backspace " prefix_length "}" word
                 break
             }  
             else if SubStr(word, 1, prefix_length) = prefix {
-                ; send_str := SubStr(word, prefix_length + 1)
-            ;-*-*-*-*-*-*-*-*-*-*-*-*-*-*我增加的代码*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-                send_str := "{Backspace " prefix_length "}" word2
-                ; MsgBox send_str
-            ;-*-*-*-*-*-*-*-*-*-*-*-*-*-*我增加的代码*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+                send_str := SubStr(word, prefix_length + 1)
                 break
             }
             index += 2
@@ -264,8 +314,7 @@ Class SuggestionsGui
         this.ResetWord("insert")
         if send_str {
             gathered_input.OnChar := ""
-            ; MsgBox send_str
-            Send send_str
+            Send InvertEscapeSequences(send_str)
             Send this.settings["end_char"]
             SendLevel 1 ; to reset hotstrings in other scripts
             Send "{Left}{Right}"
@@ -290,7 +339,8 @@ Class SuggestionsGui
     ChangeFocus(direction, *) {
         focused := ListViewGetContent("Count Focused", this.matches)
         if not focused {
-            focused := 1
+            this.matches.Modify(1, "+Select +Focus +Vis")
+            return
         }
         else {
             this.matches.Modify(focused, "-Select -Focus -Vis")
@@ -321,10 +371,8 @@ Class SuggestionsGui
     }
 
     CharUpdateInput(hook, params*) {
-        for app in this.settings["ignored_applications"] {
-            if WinActive(app) {
-                return
-            }
+        if not this.ShouldShowMenu() {
+            return
         }
 
         key := params[1]
@@ -355,10 +403,8 @@ Class SuggestionsGui
     }
 
     AltUpdateInput(hook, params*) {
-        for app in this.settings["ignored_applications"] {
-            if WinActive(app) {
-                return
-            }
+        if not this.ShouldShowMenu() {
+            return
         }
 
         key := GetKeyName(Format("vk{:x}sc{:x}", params[1], params[2]))
@@ -413,6 +459,7 @@ Class SuggestionsGui
 
         this.AddMatchControls(hotstring_matches, word_matches)
         if this.matches.GetCount() {
+            this.matches.Modify(1, "+Select +Focus +Vis")
             sleep 10 ; to update caret position
             this.ResizeGui()
             this.ShowGui()
@@ -474,6 +521,25 @@ Class SuggestionsGui
             this.ResetWord("Click")
         }
     }
+
+    ; returns list of word list and hotstring files for the insertion menu
+    GetFileOptions() {
+        options := StrSplit(this.settings.Get("word_list_files", ""), ",")
+        hotstring_files := StrSplit(this.settings.Get("hotstring_files", ""), ",")
+        index := 1
+        while index < hotstring_files.Length {
+            options.Push(hotstring_files[index])
+            index += 3
+        }
+        return options
+    }
+
+    diagnose() {
+        this.window.GetPos(&X, &Y, &Width, &Height)
+        exists := WinExist("Completion Menu") != 0
+        msgbox "Window Shown: " exists "`n" "Visible Control: " this.matches.Visible "`n" "Matches: " this.matches.GetCount() "`n" "Gui Position: X: " X ", Y: " Y ", Width: " Width ", Height: " Height
+    }
+
 }
 
 Class TrieNode
@@ -556,7 +622,71 @@ Class TrieNode
     }
 }
 
+Class AddWordGui 
+{
+    __New() {
+        this.file_options := completion_menu.GetFileOptions()
+        this.input_gui := this.MakeGui()
+    }
 
-Reload2(ThisHotkey){
-    Reload
+    MakeGui() {
+        new_gui := Gui(, "Add New Match", this)
+        new_gui.OnEvent("Escape", "HideGui")
+        new_gui.SetFont("S" completion_menu.settings["font_size"], completion_menu.settings["font"])
+        new_gui.Add("Text",,"Input the new hotstring or phrase:")
+        this.input := new_gui.Add("Edit", "w250")
+        this.selected_file := new_gui.Add("DropDownList", "w250", this.file_options)
+        Enter := new_gui.Add("Button", "Default", "Enter")
+        Enter.OnEvent("Click", "SubmitNewWord")
+        Cancel := new_gui.Add("Button", "x+m", "Cancel")
+        Cancel.OnEvent("Click", "HideGui")
+        return new_gui
+    }
+
+    ShowGui() {
+        selected_text := this.GetSelectedText()
+        if selected_text {
+            this.input.Text := selected_text
+        }
+        this.input_gui.Show("w300")
+        WinWait "Add New Match"
+        Send "{End}"
+    }
+
+    GetSelectedText() {
+        ; from hotstring helper in docs
+        old_contents := A_Clipboard
+        A_Clipboard := ""
+        Send "^{Ins}"
+        Sleep 50
+        selected_text := AddEscapeSequences(A_Clipboard)
+        A_Clipboard := old_contents
+        return selected_text
+    }
+
+    HideGui(*) {
+        this.input_gui.Destroy()
+        this.input_gui := this.MakeGui()
+    }
+
+    SubmitNewWord(*) {
+        is_hotstring := RegExMatch(this.input.Text, "(?P<Label>:(?P<Options>.*?):(?P<Abbreviation>.*?))::(?P<Replacement>.*)", &Entered)
+        if is_hotstring and (Entered.Abbreviation and Entered.Replacement) {
+            completion_menu.LoadHotstring(Entered.Options, Entered.Replacement, Entered.Abbreviation, 1, 1)
+            Hotstring Entered.Label, Entered.Replacement
+        }
+        else if StrLower(SubStr(this.selected_file.Text, -3)) == "ahk" {
+            msgbox "Couldn't add new word. Make sure hotstrings are entered with correct AHK syntax eg '::btw::by the way'."
+            return
+        }
+        else {
+            completion_menu.LoadWord(this.input.Text)
+        }
+
+        if this.selected_file.Text {
+            FileAppend "`n" this.input.Text, this.selected_file.Text
+        }
+        this.HideGui()
+    }
+
 }
