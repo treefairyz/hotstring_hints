@@ -100,8 +100,11 @@ rgx;➽人关系 HotstringMenu
 rjt;➽人家庭 HotstringMenu
 
 ; ,,结尾的热字串
-ht`,`,➽> [!htc] 
-tl`,`,➽> [!timeline]-
+yhb,,➽> [!success] #h/yy 自用优化版 " A_YYYY "-" A_MM "-" A_DD " " A_Hour ":" A_Min ":" A_Sec " #Programming/myCodes #4⭐ 
+zyb,,➽> [!success] #h/yy 自用修改版 " A_YYYY "-" A_MM "-" A_DD " " A_Hour ":" A_Min ":" A_Sec " #Programming/myCodes #4⭐
+id,,➽> [!idea] #·/💡启发 
+ht,,➽> [!htc] 
+tl,,➽> [!timeline]-
 hb,,➽> [!hibox] 
 pr,,➽> [!promts] #tool/AI/prompts 
 ai,,➽> [!AIsummary] 
@@ -191,6 +194,7 @@ fai,,➽> [!failure]
 ,,,➽<>
 
 ; 常用字串
+wx;➽zhousuwen30
 md➽markdown
 ===➽;-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 2kg➽　　`
@@ -250,6 +254,7 @@ rm`t➽template:=RegExReplace(template,"`am)",""){Left 5}
 {l ➽PutStringinClipboard2Paste("{{LINKCURRENT}}")
 
 ; obsidian常用输入
+ywa➽原文：{activeNote}
 333➽#
 l2mm➽[list2node|addClass(min)]
 l2m ➽[list2markmap]  ;转markmap思维导图
@@ -268,8 +273,15 @@ owr➽|replace:`"`":`"`"{Left 4}
 owz➽|replace:"//gm":""{Left 7}
 
 ; 精神
+zdfs➽振动方式
+lez ➽老恶种
+zdpl➽振动频率
+wmwd➽外面未独立精神记忆
+zrjf➽载入记忆法则
 zrjj➽载入记忆
 sms ➽数码圣地
 xez ➽行恶众生
 rlsj➽人类世界
 smlx➽数码圣地的联系方式
+; music
+gff➽古风
