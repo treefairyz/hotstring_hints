@@ -100,6 +100,7 @@ rgx;➽人关系 HotstringMenu
 rjt;➽人家庭 HotstringMenu
 
 ; ,,结尾的热字串
+i-,,➽> [!info]- 
 yhb,,➽> [!success] #h/yy 自用优化版 " A_YYYY "-" A_MM "-" A_DD " " A_Hour ":" A_Min ":" A_Sec " #Programming/myCodes #4⭐ 
 zyb,,➽> [!success] #h/yy 自用修改版 " A_YYYY "-" A_MM "-" A_DD " " A_Hour ":" A_Min ":" A_Sec " #Programming/myCodes #4⭐
 id,,➽> [!idea] #·/💡启发 
@@ -194,6 +195,7 @@ fai,,➽> [!failure]
 ,,,➽<>
 
 ; 常用字串
+xgsp➽## 相关视频
 wx;➽zhousuwen30
 md➽markdown
 ===➽;-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -220,11 +222,12 @@ ttt ➽年-月-日 时:分:秒（两位数时间）
 tttt➽年月日时分秒（两位数时间）
 
 ; 常用正则
-fkk➽([\S]+?)
-fkj➽([^\r\n<>]+?)
+fhh➽([^\r\n]{+}?)
+fkk➽([\S]{+}?)
+fkj➽([^\r\n<>]{+}?)
 fkx➽(.*?)
-fk`t➽.+?
-ff`t➽(.+?)
+fk`t➽.{+}?
+ff`t➽(.{+}?)
 hh`t➽[\r\n]{+}
 kth➽[\s\t\r\n]{+}
 ssss➽([\s\S]{+}?)
@@ -254,6 +257,11 @@ rm`t➽template:=RegExReplace(template,"`am)",""){Left 5}
 {l ➽PutStringinClipboard2Paste("{{LINKCURRENT}}")
 
 ; obsidian常用输入
+l2t ➽[list2table]
+l2pm➽[list2pumlMindmap]
+l2no➽[list2node]
+l2rm➽[listroot(root((mindmap)))|list2mindmap]
+l2me➽[list2mermaid]
 ywa➽原文：{activeNote}
 333➽#
 l2mm➽[list2node|addClass(min)]

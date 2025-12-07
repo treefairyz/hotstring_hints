@@ -17,8 +17,9 @@ SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 
 
 ; ,,结尾的热字串
-:?*ZX:yhb,,::Clipboard:=Send2Clipboard("> [!success] #h/yy 自用优化版 " A_YYYY "-" A_MM "-" A_DD " " A_Hour ":" A_Min ":" A_Sec " #Programming/myCodes #4⭐")
-:?*ZX:zyb,,::Clipboard:=Send2Clipboard("> [!success] #h/yy 自用修改版 " A_YYYY "-" A_MM "-" A_DD " " A_Hour ":" A_Min ":" A_Sec " #Programming/myCodes #4⭐ ")
+:?*Z:i-,,::> [{!}info]- 
+:?*ZX:yhb,,::Clipboard:=Send2Clipboard("> [!success] #h/yy 自用优化版 (" A_YYYY "-" A_MM "-" A_DD " " A_Hour ":" A_Min ":" A_Sec ") #Programming/myCodes #4⭐")
+:?*ZX:zyb,,::Clipboard:=Send2Clipboard("> [!success] #h/yy 自用修改版 (" A_YYYY "-" A_MM "-" A_DD " " A_Hour ":" A_Min ":" A_Sec ") #Programming/myCodes #4⭐ ")
 :*ZX:id,,::> [!idea] #·/💡启发 
 :?*ZX:tl,,::> [!timeline]-
 :?*ZX:ht,,::> [!htc] 
@@ -114,6 +115,7 @@ SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 :?*:,,,::<>{left}
 
 ; 常用字串
+:?*Z:xgsp::## 相关视频
 :?*Z:wx;::zhousuwen30
 :?*Z:md::markdown
 :?*:===::;-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -140,6 +142,7 @@ SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 :*:tttt::Send %A_YYYY%%A_MM%%A_DD%%A_Hour%%A_Min%%A_Sec%
 
 ; 常用正则
+:?*Z:fhh::([^\r\n]+?)
 :?*:fkk::([\S]{+}?)
 :?*:fkj::([^\r\n<>]{+}?)
 :?*:fk`t::.{+}?
@@ -178,6 +181,11 @@ SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 :*:{l ::PutStringinClipboard2Paste("{{LINKCURRENT}}")
 
 ; obsidian常用输入
+:?*ZX:l2t ::[list2table]
+:?*ZX:l2pm::[list2pumlMindmap]
+:?*ZX:l2no::[list2node]
+:?*ZX:l2rm::[listroot(root((mindmap)))|list2mindmap]
+:?*ZX:l2me::[list2mermaid]
 :?*ZX:ywa::原文：{activeNote}
 :?*Z:333::#
 :?*:l2mm::[list2node|addClass(min)]
